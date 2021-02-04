@@ -53,26 +53,14 @@ public class HotItemsDataStream {
 
         DataStreamSource<String> inputStream = DataSourceUtil.getData(env);
 
-        SingleOutputStreamOperator<ItemViewCount> aggStream = inputStream
-                .map(ub -> {
-                    String[] split = ub.split(",");
-                    return new UserBehavior(Long.valueOf(split[0]),
-                            Long.valueOf(split[1]),
-                            Long.valueOf(split[2]),
-                            split[3],
-                            Long.valueOf(split[4]));
-                })//注册升序watermark
-                .assignTimestampsAndWatermarks(
-                        WatermarkStrategy
-                                .<UserBehavior>forMonotonousTimestamps()
-                                //抽取时间戳
-                                .withTimestampAssigner(((userBehavior, l) -> userBehavior.getTimestamp() * 1000L)))
-                .filter(userBehavior -> userBehavior.getBehavior().equals("pv"))
-                .keyBy(UserBehavior::getItemId)
-                //滑动窗口，1小时，五分钟滑动一次
-                .window(SlidingEventTimeWindows.of(Time.hours(1), Time.minutes(5)))
-                //聚合
-                .aggregate(new CountAggFunction(), new ItemViewWindowResult());
+        SingleOutputStreamOperator<ItemViewCount> aggStream =
+                DataSourceUtil.tramsformAndAssignWatermark(inputStream)
+                        .filter(userBehavior -> userBehavior.getBehavior().equals("pv"))
+                        .keyBy(UserBehavior::getItemId)
+                        //滑动窗口，1小时，五分钟滑动一次
+                        .window(SlidingEventTimeWindows.of(Time.hours(1), Time.minutes(5)))
+                        //聚合
+                        .aggregate(new CountAggFunction(), new ItemViewWindowResult());
 //        aggStream.print();
         //对aggstream的窗口进行分组，聚合，取topN
         SingleOutputStreamOperator<String> topStream = aggStream
@@ -88,7 +76,7 @@ public class HotItemsDataStream {
     /**
      * 自定义预聚合函数AggregateFunction，聚合状态就是当前商品的count值
      */
-    private static class CountAggFunction implements AggregateFunction<UserBehavior, Long,Long> {
+    private static class CountAggFunction implements AggregateFunction<UserBehavior, Long, Long> {
         @Override
         public Long createAccumulator() {
             return 0L;
@@ -96,7 +84,7 @@ public class HotItemsDataStream {
 
         @Override
         public Long add(UserBehavior userBehavior, Long aLong) {
-            return aLong+1;
+            return aLong + 1;
         }
 
         @Override
@@ -106,23 +94,23 @@ public class HotItemsDataStream {
 
         @Override
         public Long merge(Long aLong, Long acc1) {
-            return aLong+acc1;
+            return aLong + acc1;
         }
     }
 
-    private static class ItemViewWindowResult implements WindowFunction<Long,ItemViewCount,Long, TimeWindow>{
+    private static class ItemViewWindowResult implements WindowFunction<Long, ItemViewCount, Long, TimeWindow> {
 
         @Override
         public void apply(Long aLong, TimeWindow window, Iterable<Long> input, Collector<ItemViewCount> out) throws Exception {
             Long key = aLong;
             Long windowEnd = window.getEnd();
             Long count = input.iterator().next();
-            out.collect(new ItemViewCount(key,windowEnd,count));
+            out.collect(new ItemViewCount(key, windowEnd, count));
         }
     }
 
     @Data
-    private static class ItemViewCount{
+    private static class ItemViewCount {
         private Long itemId;
         private Long windowEnd;
         private Long count;
@@ -141,15 +129,16 @@ public class HotItemsDataStream {
      * 3、执行定时器任务时，对list排序去topN即可
      */
     private static class TopNHotItems extends KeyedProcessFunction<Long, ItemViewCount, String> {
-        private int n =5;
+        private int n = 5;
 
         //定义状态
         ListState<ItemViewCount> itemViewCountListState = null;
+
         @Override
         public void open(Configuration parameters) throws Exception {
             super.open(parameters);
             //初始化状态
-            itemViewCountListState = getRuntimeContext().getListState(new ListStateDescriptor<ItemViewCount>("itemViewCount-list",ItemViewCount.class));
+            itemViewCountListState = getRuntimeContext().getListState(new ListStateDescriptor<ItemViewCount>("itemViewCount-list", ItemViewCount.class));
         }
 
         public TopNHotItems(int n) {
@@ -161,12 +150,13 @@ public class HotItemsDataStream {
 
             this.itemViewCountListState.add(value);
             //注册定时器，延迟1毫秒执行
-            ctx.timerService().registerEventTimeTimer(value.getWindowEnd()+1);
+            ctx.timerService().registerEventTimeTimer(value.getWindowEnd() + 1);
         }
+
         @Override
         public void onTimer(long timestamp, OnTimerContext ctx, Collector<String> out) throws Exception {
-            List<ItemViewCount> allItems =new ArrayList<>();
-            itemViewCountListState.get().forEach(item->allItems.add(item));
+            List<ItemViewCount> allItems = new ArrayList<>();
+            itemViewCountListState.get().forEach(item -> allItems.add(item));
             // 清空状态
             itemViewCountListState.clear();
             //排序取topN
@@ -175,7 +165,7 @@ public class HotItemsDataStream {
                     .limit(n).collect(Collectors.toList());
 
             StringBuffer sb = new StringBuffer();
-            sb.append("窗口结束时间：").append( new Timestamp(timestamp - 1) ).append("\n");
+            sb.append("窗口结束时间：").append(new Timestamp(timestamp - 1)).append("\n");
             for (int i = 0; i < result.size(); i++) {
                 ItemViewCount currentItemViewCount = result.get(i);
                 sb.append("NO").append(i + 1).append(": \t")

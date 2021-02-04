@@ -15,15 +15,36 @@
  */
 package com.ivan.analysis;
 
+import com.ivan.analysis.bean.UserBehavior;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 public class DataSourceUtil {
 
-    public static DataStreamSource<String> getData(StreamExecutionEnvironment env ){
+    public static final String DATA_PATH = "/Users/ivan/dev/applications/git/UserBehaviorAnalysis/src/main/resources/UserBehavior.csv";
+    public static DataStreamSource<String> getData(StreamExecutionEnvironment env) {
         env.setParallelism(1);
 
-        return env.readTextFile("/Users/ivan/dev/applications/git/UserBehaviorAnalysis/src/main/resources/UserBehavior.csv");
+        return env.readTextFile(DATA_PATH);
+    }
+
+    public static DataStream<UserBehavior> tramsformAndAssignWatermark(DataStreamSource<String> inputStream) {
+
+        return inputStream.map(ub -> {
+            String[] split = ub.split(",");
+            return new UserBehavior(Long.valueOf(split[0]),
+                    Long.valueOf(split[1]),
+                    Long.valueOf(split[2]),
+                    split[3],
+                    Long.valueOf(split[4]));
+        })//注册升序watermark
+                .assignTimestampsAndWatermarks(
+                        WatermarkStrategy
+                                .<UserBehavior>forMonotonousTimestamps()
+                                //抽取时间戳
+                                .withTimestampAssigner(((userBehavior, l) -> userBehavior.getTimestamp())));
     }
 
 }
