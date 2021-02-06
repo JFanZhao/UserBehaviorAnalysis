@@ -15,26 +15,19 @@
  */
 package com.ivan.analysis.hotitems.main;
 
-import com.ivan.analysis.DataSourceUtil;
-import com.ivan.analysis.bean.UserBehavior;
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import com.ivan.analysis.FileUtil;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-import static org.apache.flink.table.api.Expressions.$;
-
 public class HotItemsSQL {
     public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-//        DataStreamSource<String> inputStream = DataSourceUtil.getData(env);
+//        DataStreamSource<String> inputStream = FileUtil.getData(env);
 
-//        DataStream<UserBehavior> data = DataSourceUtil.tramsformAndAssignWatermark(inputStream);
+//        DataStream<UserBehavior> data = FileUtil.tramsformAndAssignWatermark(inputStream);
 
         //定义表执行环境
 //        EnvironmentSettings settings = EnvironmentSettings
@@ -58,7 +51,7 @@ public class HotItemsSQL {
                 ") WITH\n" +
                 "( \n" +
                 "\t'connector.type' = 'filesystem',\n" +
-                "\t'connector.path' = '" + DataSourceUtil.DATA_PATH + "',\n" +
+                "\t'connector.path' = '" + FileUtil.DATA_PATH_BEHAVIOR + "',\n" +
                 "\t'format.type' = 'csv'\n" +
                 ")\n";
         //执行ddl语句

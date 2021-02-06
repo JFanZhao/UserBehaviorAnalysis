@@ -16,7 +16,7 @@
 package com.ivan.analysis.hotitems.main;
 
 import com.ivan.analysis.bean.UserBehavior;
-import com.ivan.analysis.DataSourceUtil;
+import com.ivan.analysis.FileUtil;
 import lombok.Data;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.AggregateFunction;
@@ -51,10 +51,22 @@ public class HotItemsDataStream {
         //***********flink 1.2 默认使用eventtime，不用单独设置
 //        env.setStreamTimeCharacteristic();
 
-        DataStreamSource<String> inputStream = DataSourceUtil.getData(env);
+        DataStreamSource<String> inputStream = FileUtil.getData(env);
 
+        SingleOutputStreamOperator<UserBehavior> dataStream = inputStream.map(ub -> {
+            String[] split = ub.split(",");
+            return new UserBehavior(Long.valueOf(split[0]),
+                    Long.valueOf(split[1]),
+                    Long.valueOf(split[2]),
+                    split[3],
+                    Long.valueOf(split[4]));
+        })//注册升序watermark
+        .assignTimestampsAndWatermarks(
+                WatermarkStrategy.<UserBehavior>forMonotonousTimestamps()
+                        //抽取时间戳
+                .withTimestampAssigner(((userBehavior, l) -> userBehavior.getTimestamp())));
         SingleOutputStreamOperator<ItemViewCount> aggStream =
-                DataSourceUtil.tramsformAndAssignWatermark(inputStream)
+                dataStream
                         .filter(userBehavior -> userBehavior.getBehavior().equals("pv"))
                         .keyBy(UserBehavior::getItemId)
                         //滑动窗口，1小时，五分钟滑动一次
