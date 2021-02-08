@@ -51,7 +51,7 @@ public class HotItemsDataStream {
         //***********flink 1.2 默认使用eventtime，不用单独设置
 //        env.setStreamTimeCharacteristic();
 
-        DataStreamSource<String> inputStream = FileUtil.getData(env);
+        DataStreamSource<String> inputStream = FileUtil.getData(env,FileUtil.DATA_PATH_BEHAVIOR);
 
         SingleOutputStreamOperator<UserBehavior> dataStream = inputStream.map(ub -> {
             String[] split = ub.split(",");

@@ -21,10 +21,11 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 public class FileUtil {
 
     public static final String DATA_PATH_BEHAVIOR = "/Users/ivan/dev/applications/git/UserBehaviorAnalysis/src/main/resources/UserBehavior.csv";
-    public static DataStreamSource<String> getData(StreamExecutionEnvironment env) {
+    public static final String DATA_PATH_APP_LOG = "/Users/ivan/dev/applications/git/UserBehaviorAnalysis/src/main/resources/apache.log";
+    public static DataStreamSource<String> getData(StreamExecutionEnvironment env,String path) {
         env.setParallelism(1);
 
-        return env.readTextFile(DATA_PATH_BEHAVIOR);
+        return env.readTextFile(path);
     }
 
 //    public static DataStream<UserBehavior> tramsformAndAssignWatermark(DataStreamSource<String> inputStream) {
